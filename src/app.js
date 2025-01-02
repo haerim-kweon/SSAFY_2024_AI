@@ -6,7 +6,7 @@ const userInput = document.getElementById("user-input");
 const apiSelector = document.getElementById("api-selector");
 const newChatBtn = document.getElementById("new-chat-btn");
 
-const BASE_URL = "http://localhost:8000";
+const BASE_URL = process.env.API_ENDPOINT;
 
 let db;
 
@@ -261,7 +261,7 @@ messageForm.addEventListener("submit", async (e) => {
     await saveMessage("assistant", JSON.stringify(response));
     scrollToBottom();
   } catch (error) {
-    console.error("Error fetching assistant response:", error);
+    //console.error("Error fetching assistant response:", error);
     const errMsg = "Error fetching response. Check console.";
     chatContainer.appendChild(createMessageBubble(errMsg, "assistant"));
     await saveMessage("assistant", errMsg);
