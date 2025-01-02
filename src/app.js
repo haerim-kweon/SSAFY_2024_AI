@@ -6,7 +6,7 @@ const userInput = document.getElementById("user-input");
 const apiSelector = document.getElementById("api-selector");
 const newChatBtn = document.getElementById("new-chat-btn");
 
-const BASE_URL = "https://ssafy-backend-gwangju2.fly.dev";
+const BASE_URL = "http://localhost:8000";
 
 let db;
 
@@ -139,42 +139,62 @@ async function getAssistantResponse(userMessage) {
   const mode = apiSelector.value;
   let url;
 
-  if (mode === "assistant") {
-    const thread_id = await getMetadata("thread_id");
-    url = `${BASE_URL}/assistant?message=${encodeURIComponent(userMessage)}`;
-    if (thread_id) {
-      url += `&thread_id=${encodeURIComponent(thread_id)}`;
+  if (mode === "chat") {
+    url = `${BASE_URL}/chat`;
+    const payload = { message: userMessage };
+
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      throw new Error("Network response was not ok");
     }
+
+    const data = await response.json();
+
+    return data;
+
   } else {
-    // Naive mode
-    //const query = JSON.stringify([{ role: "user", content: userMessage }]);
-    url = `${BASE_URL}/news?query=${encodeURIComponent(userMessage)}`;
-//    url = "https://ssafy-backend-gwangju2.fly.dev/news?query=%EC%8A%A4%ED%8F%AC%EC%B8%A0"
+    const thread_id = await getMetadata("thread_id");
+    url = `${BASE_URL}/assistant`;
+    const payload = { message: userMessage};
+    if (thread_id) payload.thread_id = thread_id;
+    
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      throw new Error("Network response was not ok");
+    }
+    
+
+    if (!response.ok) {
+      throw new Error("Network response was not ok");
+    }
+
+    const data = await response.json();
+    
+    if (mode == "assistant" && data.summary.thread_id) {
+      const existingThreadId = await getMetadata("thread_id");
+      if (!existingThreadId) {
+        await saveMetadata("thread_id", data.summary.thread_id);
+      }
+    }
+
+
+
+    return data; // Assuming the response contains a `news` array
   }
-
-  const response = await fetch(url, {
-    method: "GET",
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error("Network response was not ok");
-  }
-
-  const data = await response.json();
-  // 뉴스 응답 처리
-  if (mode !== "assistant") {
-    // 뉴스 배열 반환
-    return data.map(item => ({
-      title: item.title,
-      description: item.description,
-      link: item.link,
-    }));
-  }
-
-  return data.reply;
 }
 
 messageForm.addEventListener("submit", async (e) => {
@@ -191,23 +211,51 @@ messageForm.addEventListener("submit", async (e) => {
   try {
     const response = await getAssistantResponse(message);
 
-    if (Array.isArray(response)) {
-      // 뉴스 응답 처리
-      response.forEach(news => {
+    if (response.type === "chat") {
+      response.results.forEach(news => {
         const newsElement = document.createElement("div");
-        newsElement.classList.add("news-item", "p-3", "mb-4", "rounded-lg", "shadow");
 
         newsElement.innerHTML = `
-          <h3 class="font-bold text-lg text-blue-600">${news.title}</h3>
-          <p class="text-gray-700">${news.description}</p>
-          <a href="${news.link}" target="_blank" class="text-blue-500 underline">Read more</a>
+          <div class="p-4 bg-white shadow rounded-lg border border-gray-200 m-4">
+            <h3 class="text-lg font-semibold text-gray-900 mb-2">${news.title}</h3>
+            <p class="text-gray-700 mb-4">${news.description}</p>
+            <a href="${news.link}" target="_blank" 
+              class="text-blue-500 hover:text-blue-700 font-medium underline">
+              Read more
+            </a>
+          </div>
         `;
+
 
         chatContainer.appendChild(newsElement);
       });
-    } else {
+
+      chatContainer.appendChild(createMessageBubble(response.reply, "assistant"));
+
+    } 
+    else {
       // 일반 응답 처리
-      chatContainer.appendChild(createMessageBubble(response, "assistant"));
+        response.results.forEach(news => {
+          const newsElement = document.createElement("div");
+  
+          newsElement.innerHTML = `
+            <div class="p-4 bg-white shadow rounded-lg border border-gray-200 m-4">
+              <h3 class="text-lg font-semibold text-gray-900 mb-2">${news.title}</h3>
+              <p class="text-gray-700 mb-4">${news.description}</p>
+              <a href="${news.link}" target="_blank" 
+                class="text-blue-500 hover:text-blue-700 font-medium underline">
+                Read more
+              </a>
+            </div>
+          `;
+  
+  
+          chatContainer.appendChild(newsElement);
+        });
+      
+      
+
+      chatContainer.appendChild(createMessageBubble(response.summary.reply, "assistant"));
     }
 
     await saveMessage("assistant", JSON.stringify(response));
@@ -220,7 +268,6 @@ messageForm.addEventListener("submit", async (e) => {
     scrollToBottom();
   }
 });
-
 
 async function loadExistingMessages() {
   const allMsgs = await getAllMessages();
@@ -238,5 +285,3 @@ newChatBtn.addEventListener("click", async () => {
 });
 
 initDB().then(loadExistingMessages);
-
-console.log(BASE_URL);
