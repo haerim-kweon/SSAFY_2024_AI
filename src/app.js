@@ -258,13 +258,13 @@ messageForm.addEventListener("submit", async (e) => {
       chatContainer.appendChild(createMessageBubble(response.summary.reply, "assistant"));
     }
 
-    await saveMessage("assistant", JSON.stringify(response));
+    //await saveMessage("assistant", JSON.stringify(response));
     scrollToBottom();
   } catch (error) {
     //console.error("Error fetching assistant response:", error);
     const errMsg = "Error fetching response. Check console.";
     chatContainer.appendChild(createMessageBubble(errMsg, "assistant"));
-    await saveMessage("assistant", errMsg);
+    //await saveMessage("assistant", errMsg);
     scrollToBottom();
   }
 });
